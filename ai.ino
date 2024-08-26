@@ -1,37 +1,21 @@
-#include <Wire.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <DHT.h>
 
 // Definimos nuestras credenciales de la red WiFi
-const char* ssid = "Webzignet";
-const char* pass = "webzignet";
+const char* ssid = "Webzignet"; // Reemplaza con el nombre de tu red WiFi
+const char* pass = "webzignet"; // Reemplaza con tu contraseña de WiFi
 
 // URL de la API
 const char* api_url = "http://esp32.webzignet.com/api.php/?question=";
-
-// Configuración del sensor DHT11
-#define DHTPIN 23
-#define DHTTYPE DHT11
-DHT dht(DHTPIN, DHTTYPE);
-
-// Configuración del KY-038
-const int micPin = 34; // Salida analógica del KY-038
 
 void setup() {
   // Iniciamos el terminal Serial para depuración
   Serial.begin(115200);
 
-  // Iniciamos el sensor DHT11
-  dht.begin();
-
-  // Configuramos el KY-038
-  pinMode(micPin, INPUT);
-
   // Iniciamos la conexión a la red WiFi
   WiFi.begin(ssid, pass);
-  delay(2000);
-  Serial.print("Conectando a ");
+  delay(2000); // Espera para permitir la conexión
+  Serial.print("Se está conectando a la red WiFi denominada ");
   Serial.println(ssid);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -42,41 +26,40 @@ void setup() {
   Serial.println("Dirección IP: ");
   Serial.println(WiFi.localIP());
 
-  Serial.println("Listo para preguntas. Escribe tu pregunta y presiona Enter.");
+  Serial.println("Ingrese una pregunta para consultar a la API:");
 }
 
 void loop() {
-  // Verificar si hay datos disponibles en el puerto serie
-  if (Serial.available()) {
-    String question = Serial.readStringUntil('\n'); // Leer la pregunta hasta el salto de línea
-    question.trim(); // Eliminar espacios en blanco al principio y al final
-
+  // Verificamos si hay datos disponibles en el Monitor Serial
+  if (Serial.available() > 0) {
+    String question = Serial.readStringUntil('\n'); // Lee la pregunta ingresada por el usuario
+    question.trim(); // Elimina espacios en blanco al principio y final
     if (question.length() > 0) {
-      Serial.print("Pregunta recibida: ");
-      Serial.println(question);
-
-      // Realizamos una solicitud a la API
-      HTTPClient http;
-      String encodedQuestion = String(urlEncode(question)); // Codifica la pregunta
+      String encodedQuestion = urlEncode(question); // Codifica la pregunta para la URL
       String url = String(api_url) + encodedQuestion;
+      
+      // Realizar una solicitud HTTP a la API
+      HTTPClient http;
       http.begin(url);
       int httpCode = http.GET();
 
       if (httpCode > 0) {
         String payload = http.getString();
-        Serial.println(); // Línea en blanco para separar la pregunta de la respuesta
         Serial.println("Respuesta de la API:");
-        Serial.println(payload); // Mostrar respuesta en la consola
+        Serial.println(payload);
       } else {
-        Serial.println(); // Línea en blanco para separar la pregunta del error
-        Serial.println("Error en la solicitud");
+        Serial.println("Error en la solicitud a la API");
       }
 
       http.end();
+    } else {
+      Serial.println("La pregunta ingresada está vacía. Inténtelo de nuevo.");
     }
+
+    Serial.println("\nIngrese otra pregunta para consultar a la API:");
   }
 
-  delay(5000); // Espera antes de la siguiente lectura
+  delay(100); // Pequeña espera antes de la siguiente iteración del loop
 }
 
 String urlEncode(String str) {
